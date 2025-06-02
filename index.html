@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickClip - 定型文管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <style>
+        /* カスタムスクロールバー */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-track {
+            background: #2d3748;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #4a5568;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #718096;
+        }
+        /* トランジション */
+        * {
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+        }
+        /* Tailwind動的クラスのためのコメント
+        bg-blue-100 bg-blue-500 text-blue-800 text-blue-900
+        bg-green-100 bg-green-500 text-green-800 text-green-900
+        bg-red-100 bg-red-500 text-red-800 text-red-900
+        bg-purple-100 bg-purple-500 text-purple-800 text-purple-900
+        bg-yellow-100 bg-yellow-500 text-yellow-800 text-yellow-900
+        bg-pink-100 bg-pink-500 text-pink-800 text-pink-900
+        bg-indigo-100 bg-indigo-500 text-indigo-800 text-indigo-900
+        bg-gray-100 bg-gray-500 text-gray-800 text-gray-900
+        */
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+        const { createRoot } = ReactDOM;
+        
+        // ユーティリティ関数
+        const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+        
+        // デフォルトカテゴリー
+        const defaultCategories = [
+            { id: 'cat1', name: '診断書・証明書', color: 'blue', icon: 'FileText' },
+            { id: 'cat2', name: '処方・薬剤', color: 'green', icon: 'Pill' },
+            { id: 'cat3', name: 'パスワード', color: 'red', icon: 'Lock' },
+            { id: 'cat4', name: 'プロンプト', color: 'purple', icon: 'MessageSquare' },
+            { id: 'cat5', name: 'その他', color: 'gray', icon: 'Archive' }
+        ];
+        
+        // デフォルトアイテム
+        const defaultItems = [
+            {
+                id: 'item1',
+                title: '感染性腸炎診断書（英語）',
+                content: 'This is to certify that the above patient has been diagnosed with infectious gastroenteritis based on symptoms of nausea, abdominal pain, and diarrhea.',
+                categoryId: 'cat1',
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            },
+            {
+                id: 'item2',
+                title: 'カロナール処方',
+                content: 'カロナール錠200mg 1回2錠 1日3回 毎食後 7日分',
+                categoryId: 'cat2',
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            },
+            {
+                id: 'item3',
+                title: 'ChatGPTプロンプト - 要約',
+                content: '以下の文章を、要点を3つに絞って簡潔に要約してください。専門用語は避け、一般の方にも分かりやすい表現を使ってください。',
+                categoryId: 'cat4',
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+            }
+        ];
+        
+        // アイコンコンポーネント
+        const Icon = ({ name, size = 16, className = "" }) => {
+            useEffect(() => {
+                lucide.createIcons();
+            }, []);
+            return <i data-lucide={name} className={className} style={{ width: size, height: size }}></i>;
+        };
+        
+        // カテゴリーコンポーネント
+        const CategoryList = ({ categories, selectedCategory, onSelectCategory, onEditCategory, darkMode }) => {
+            useEffect(() => {
+                // アイコンを再初期化
+                setTimeout(() => lucide.createIcons(), 100);
+            });
+            
+            return (
+                <div className="space-y-2">
+                    <button
+                        onClick={() => onSelectCategory(null)}
+                        className={`w-full text-left px-4 py-3 rounded-lg transition-all ${
+                            selectedCategory === null
+                                ? darkMode 
+                                    ? 'bg-gray-700 text-white' 
+                                    : 'bg-gray-200 text-gray-900'
+                                : darkMode
+                                    ? 'hover:bg-gray-700 text-gray-300'
+                                    : 'hover:bg-gray-100 text-gray-700'
+                        }`}
+                    >
+                        <div className="flex items-center space-x-3">
+                            <Icon name="Home" size={20} />
+                            <span className="font-medium">すべて</span>
+                        </div>
+                    </button>
+                    {categories.map(category => (
+                        <div key={category.id} className="relative group">
+                            <button
+                                onClick={() => onSelectCategory(category.id)}
+                                className={`w-full text-left px-4 py-3 pr-12 rounded-lg transition-all ${
+                                    selectedCategory === category.id
+                                        ? `bg-${category.color}-100 text-${category.color}-900 ${darkMode ? 'bg-opacity-20' : ''}`
+                                        : darkMode
+                                            ? 'hover:bg-gray-700 text-gray-300'
+                                            : 'hover:bg-gray-100 text-gray-700'
+                                }`}
+                            >
+                                <div className="flex items-center space-x-3">
+                                    <Icon name={category.icon} size={20} />
+                                    <span className="font-medium">{category.name}</span>
+                                </div>
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEditCategory(category);
+                                }}
+                                className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-all ${
+                                    darkMode 
+                                        ? 'hover:bg-gray-600 text-gray-400' 
+                                        : 'hover:bg-gray-200 text-gray-600'
+                                }`}
+                                title="カテゴリーを編集"
+                            >
+                                <Icon name="Edit2" size={14} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+        
+        // カテゴリー編集フォーム
+        const CategoryForm = ({ category, onSave, onCancel, darkMode }) => {
+            const [name, setName] = useState(category?.name || '');
+            const availableColors = ['blue', 'green', 'red', 'purple', 'yellow', 'pink', 'indigo', 'gray'];
+            const availableIcons = [
+                'FileText', 'Pill', 'Lock', 'MessageSquare', 'Archive', 
+                'Heart', 'Star', 'Flag', 'Bookmark', 'Tag',
+                'Folder', 'File', 'Calendar', 'Clock', 'Mail'
+            ];
+            const [selectedColor, setSelectedColor] = useState(category?.color || 'blue');
+            const [selectedIcon, setSelectedIcon] = useState(category?.icon || 'Folder');
+            
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (name.trim()) {
+                    onSave({
+                        ...category,
+                        name: name.trim(),
+                        color: selectedColor,
+                        icon: selectedIcon
+                    });
+                }
+            };
+            
+            return (
+                <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50`}>
+                    <div className={`w-full max-w-md ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl`}>
+                        <form onSubmit={handleSubmit}>
+                            <div className={`px-6 py-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                <h2 className={`text-xl font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                                    カテゴリーを編集
+                                </h2>
+                            </div>
+                            <div className="px-6 py-4 space-y-4">
+                                <div>
+                                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        カテゴリー名
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                                            darkMode 
+                                                ? 'bg-gray-700 border-gray-600 text-gray-100' 
+                                                : 'bg-white border-gray-300 text-gray-900'
+                                        }`}
+                                        required
+                                        autoFocus
+                                    />
+                                </div>
+                                <div>
+                                    <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        色
+                                    </label>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {availableColors.map(color => (
+                                            <button
+                                                key={color}
+                                                type="button"
+                                                onClick={() => setSelectedColor(color)}
+                                                className={`h-10 rounded-lg bg-${color}-500 ${
+                                                    selectedColor === color 
+                                                        ? 'ring-2 ring-offset-2 ring-blue-500' 
+                                                        : ''
+                                                } ${darkMode ? 'ring-offset-gray-800' : 'ring-offset-white'}`}
+                                                title={color}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        アイコン
+                                    </label>
+                                    <div className="grid grid-cols-5 gap-2 max-h-32 overflow-y-auto custom-scrollbar">
+                                        {availableIcons.map(icon => (
+                                            <button
+                                                key={icon}
+                                                type="button"
+                                                onClick={() => setSelectedIcon(icon)}
+                                                className={`p-2 rounded-lg border ${
+                                                    selectedIcon === icon 
+                                                        ? darkMode 
+                                                            ? 'border-blue-500 bg-gray-700' 
+                                                            : 'border-blue-500 bg-blue-50'
+                                                        : darkMode 
+                                                            ? 'border-gray-600 hover:bg-gray-700' 
+                                                            : 'border-gray-300 hover:bg-gray-50'
+                                                }`}
+                                                title={icon}
+                                            >
+                                                <Icon name={icon} size={20} />
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className={`px-6 py-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex justify-end space-x-3`}>
+                                <button
+                                    type="button"
+                                    onClick={onCancel}
+                                    className={`px-4 py-2 rounded-lg ${
+                                        darkMode 
+                                            ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    } transition-colors`}
+                                >
+                                    キャンセル
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                    保存
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+        
+        // アイテムカード
+        const ItemCard = ({ item, category, onEdit, onDelete, onCopy, darkMode }) => {
+            const [copied, setCopied] = useState(false);
+            
+            const handleCopy = async () => {
+                try {
+                    await navigator.clipboard.writeText(item.content);
+                    setCopied(true);
+                    onCopy();
+                    setTimeout(() => setCopied(false), 2000);
+                } catch (err) {
+                    console.error('コピーに失敗しました:', err);
+                }
+            };
+            
+            return (
+                <div className={`p-4 rounded-lg border ${darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'} hover:shadow-lg transition-all`}>
+                    <div className="flex justify-between items-start mb-2">
+                        <h3 className={`font-semibold text-lg ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                            {item.title}
+                        </h3>
+                        <div className="flex space-x-2">
+                            <button
+                                onClick={handleCopy}
+                                className={`p-2 rounded-lg transition-all ${
+                                    copied 
+                                        ? 'bg-green-100 text-green-700' 
+                                        : darkMode 
+                                            ? 'hover:bg-gray-700 text-gray-400' 
+                                            : 'hover:bg-gray-100 text-gray-600'
+                                }`}
+                                title="コピー"
+                            >
+                                <Icon name={copied ? "Check" : "Copy"} size={16} />
+                            </button>
+                            <button
+                                onClick={() => onEdit(item)}
+                                className={`p-2 rounded-lg transition-all ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}
+                                title="編集"
+                            >
+                                <Icon name="Edit2" size={16} />
+                            </button>
+                            <button
+                                onClick={() => onDelete(item.id)}
+                                className={`p-2 rounded-lg transition-all ${darkMode ? 'hover:bg-red-900 text-red-400' : 'hover:bg-red-100 text-red-600'}`}
+                                title="削除"
+                            >
+                                <Icon name="Trash2" size={16} />
+                            </button>
+                        </div>
+                    </div>
+                    <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-3 whitespace-pre-wrap`}>
+                        {item.content}
+                    </p>
+                    <div className="flex items-center justify-between">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-${category.color}-100 text-${category.color}-800 ${darkMode ? 'bg-opacity-20' : ''}`}>
+                            <Icon name={category.icon} size={12} className="mr-1" />
+                            {category.name}
+                        </span>
+                        <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                            {new Date(item.updatedAt).toLocaleDateString('ja-JP')}
+                        </span>
+                    </div>
+                </div>
+            );
+        };
+        
+        // アイテムフォーム
+        const ItemForm = ({ item, categories, onSave, onCancel, darkMode }) => {
+            const [title, setTitle] = useState(item?.title || '');
+            const [content, setContent] = useState(item?.content || '');
+            const [categoryId, setCategoryId] = useState(item?.categoryId || categories[0]?.id || '');
+            
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (title.trim() && content.trim()) {
+                    onSave({
+                        id: item?.id || generateId(),
+                        title: title.trim(),
+                        content: content.trim(),
+                        categoryId,
+                        createdAt: item?.createdAt || Date.now(),
+                        updatedAt: Date.now()
+                    });
+                }
+            };
+            
+            return (
+                <div className={`fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50`}>
+                    <div className={`w-full max-w-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl`}>
+                        <form onSubmit={handleSubmit}>
+                            <div className={`px-6 py-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                <h2 className={`text-xl font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                                    {item ? 'アイテムを編集' : '新しいアイテム'}
+                                </h2>
+                            </div>
+                            <div className="px-6 py-4 space-y-4">
+                                <div>
+                                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        タイトル
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={title}
+                                        onChange={(e) => setTitle(e.target.value)}
+                                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                                            darkMode 
+                                                ? 'bg-gray-700 border-gray-600 text-gray-100' 
+                                                : 'bg-white border-gray-300 text-gray-900'
+                                        }`}
+                                        required
+                                        autoFocus
+                                    />
+                                </div>
+                                <div>
+                                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        内容
+                                    </label>
+                                    <textarea
+                                        value={content}
+                                        onChange={(e) => setContent(e.target.value)}
+                                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                                            darkMode 
+                                                ? 'bg-gray-700 border-gray-600 text-gray-100' 
+                                                : 'bg-white border-gray-300 text-gray-900'
+                                        }`}
+                                        rows={6}
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        カテゴリー
+                                    </label>
+                                    <select
+                                        value={categoryId}
+                                        onChange={(e) => setCategoryId(e.target.value)}
+                                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                                            darkMode 
+                                                ? 'bg-gray-700 border-gray-600 text-gray-100' 
+                                                : 'bg-white border-gray-300 text-gray-900'
+                                        }`}
+                                    >
+                                        {categories.map(cat => (
+                                            <option key={cat.id} value={cat.id}>
+                                                {cat.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                            <div className={`px-6 py-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex justify-end space-x-3`}>
+                                <button
+                                    type="button"
+                                    onClick={onCancel}
+                                    className={`px-4 py-2 rounded-lg ${
+                                        darkMode 
+                                            ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    } transition-colors`}
+                                >
+                                    キャンセル
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                    保存
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+        
+        // メインアプリケーション
+        const App = () => {
+            const [categories, setCategories] = useState([]);
+            const [items, setItems] = useState([]);
+            const [selectedCategory, setSelectedCategory] = useState(null);
+            const [searchQuery, setSearchQuery] = useState('');
+            const [editingItem, setEditingItem] = useState(null);
+            const [showForm, setShowForm] = useState(false);
+            const [editingCategory, setEditingCategory] = useState(null);
+            const [showCategoryForm, setShowCategoryForm] = useState(false);
+            const [darkMode, setDarkMode] = useState(false);
+            const [showWelcome, setShowWelcome] = useState(false);
+            const [copyCount, setCopyCount] = useState(0);
+            
+            // localStorageからデータを読み込む
+            useEffect(() => {
+                try {
+                    // ダークモード設定
+                    const savedDarkMode = localStorage.getItem('quickclip_darkmode');
+                    if (savedDarkMode !== null) {
+                        setDarkMode(JSON.parse(savedDarkMode));
+                    }
+                    
+                    // 初回訪問チェック
+                    const visited = localStorage.getItem('quickclip_visited');
+                    if (!visited) {
+                        setShowWelcome(true);
+                        localStorage.setItem('quickclip_visited', 'true');
+                        // デフォルトデータを設定
+                        setCategories(defaultCategories);
+                        setItems(defaultItems);
+                        localStorage.setItem('quickclip_categories', JSON.stringify(defaultCategories));
+                        localStorage.setItem('quickclip_snippets', JSON.stringify(defaultItems));
+                    } else {
+                        // 保存済みデータを読み込む
+                        const savedCategories = localStorage.getItem('quickclip_categories');
+                        const savedItems = localStorage.getItem('quickclip_snippets');
+                        
+                        if (savedCategories) {
+                            setCategories(JSON.parse(savedCategories));
+                        } else {
+                            setCategories(defaultCategories);
+                        }
+                        
+                        if (savedItems) {
+                            setItems(JSON.parse(savedItems));
+                        }
+                    }
+                    
+                    // アイコンを初期化
+                    setTimeout(() => lucide.createIcons(), 100);
+                } catch (error) {
+                    console.error('データの読み込みに失敗しました:', error);
+                    setCategories(defaultCategories);
+                    setItems([]);
+                }
+            }, []);
+            
+            // ダークモード設定を保存
+            useEffect(() => {
+                localStorage.setItem('quickclip_darkmode', JSON.stringify(darkMode));
+                if (darkMode) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            }, [darkMode]);
+            
+            // データを保存
+            useEffect(() => {
+                if (categories.length > 0) {
+                    localStorage.setItem('quickclip_categories', JSON.stringify(categories));
+                }
+            }, [categories]);
+            
+            useEffect(() => {
+                if (items.length > 0 || localStorage.getItem('quickclip_visited')) {
+                    localStorage.setItem('quickclip_snippets', JSON.stringify(items));
+                }
+            }, [items]);
+            
+            // フィルタリングされたアイテム
+            const filteredItems = useMemo(() => {
+                let filtered = items;
+                
+                if (selectedCategory) {
+                    filtered = filtered.filter(item => item.categoryId === selectedCategory);
+                }
+                
+                if (searchQuery) {
+                    const query = searchQuery.toLowerCase();
+                    filtered = filtered.filter(item => 
+                        item.title.toLowerCase().includes(query) || 
+                        item.content.toLowerCase().includes(query)
+                    );
+                }
+                
+                return filtered.sort((a, b) => b.updatedAt - a.updatedAt);
+            }, [items, selectedCategory, searchQuery]);
+            
+            // アイテムの保存
+            const handleSaveItem = (item) => {
+                if (editingItem) {
+                    setItems(items.map(i => i.id === item.id ? item : i));
+                } else {
+                    setItems([...items, item]);
+                }
+                setEditingItem(null);
+                setShowForm(false);
+                setTimeout(() => lucide.createIcons(), 100);
+            };
+            
+            // カテゴリーの保存
+            const handleSaveCategory = (category) => {
+                setCategories(categories.map(c => c.id === category.id ? category : c));
+                setEditingCategory(null);
+                setShowCategoryForm(false);
+                setTimeout(() => lucide.createIcons(), 100);
+            };
+            
+            // アイテムの削除
+            const handleDeleteItem = (id) => {
+                if (window.confirm('このアイテムを削除してもよろしいですか？')) {
+                    setItems(items.filter(item => item.id !== id));
+                }
+            };
+            
+            // 統計情報
+            const stats = useMemo(() => {
+                const categoryCounts = {};
+                items.forEach(item => {
+                    categoryCounts[item.categoryId] = (categoryCounts[item.categoryId] || 0) + 1;
+                });
+                return {
+                    totalItems: items.length,
+                    categoryCounts,
+                    copyCount
+                };
+            }, [items, copyCount]);
+            
+            return (
+                <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
+                    {/* ヘッダー */}
+                    <header className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b sticky top-0 z-40`}>
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex items-center justify-between h-16">
+                                <div className="flex items-center">
+                                    <Icon name="Clipboard" size={24} className="text-blue-600 mr-2" />
+                                    <h1 className="text-xl font-bold">QuickClip</h1>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <button
+                                        onClick={() => setDarkMode(!darkMode)}
+                                        className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                                        title="テーマ切り替え"
+                                    >
+                                        <Icon name={darkMode ? "Sun" : "Moon"} size={20} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+                    
+                    {/* ウェルカムメッセージ */}
+                    {showWelcome && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                            <div className={`max-w-md w-full ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl p-6`}>
+                                <h2 className="text-2xl font-bold mb-4">QuickClipへようこそ！</h2>
+                                <p className={`mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                    このアプリケーションは、定型文やパスワードなどを管理し、ワンクリックでコピーできるツールです。
+                                </p>
+                                <ul className={`list-disc list-inside mb-6 space-y-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                    <li>すべてのデータはブラウザに保存されます</li>
+                                    <li>インターネット接続は不要です</li>
+                                    <li>外部にデータは送信されません</li>
+                                </ul>
+                                <button
+                                    onClick={() => setShowWelcome(false)}
+                                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                                >
+                                    始める
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* メインコンテンツ */}
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                        <div className="flex flex-col lg:flex-row gap-6">
+                            {/* サイドバー */}
+                            <aside className="lg:w-64 flex-shrink-0">
+                                <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg p-4`}>
+                                    <h2 className="font-semibold mb-4">カテゴリー</h2>
+                                    <CategoryList
+                                        categories={categories}
+                                        selectedCategory={selectedCategory}
+                                        onSelectCategory={setSelectedCategory}
+                                        onEditCategory={(category) => {
+                                            setEditingCategory(category);
+                                            setShowCategoryForm(true);
+                                        }}
+                                        darkMode={darkMode}
+                                    />
+                                    
+                                    {/* 統計情報 */}
+                                    <div className={`mt-6 pt-6 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                        <h3 className="font-semibold mb-3">統計</h3>
+                                        <div className={`space-y-2 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                            <div className="flex justify-between">
+                                                <span>総アイテム数</span>
+                                                <span className="font-medium">{stats.totalItems}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>本日のコピー数</span>
+                                                <span className="font-medium">{stats.copyCount}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </aside>
+                            
+                            {/* メインエリア */}
+                            <main className="flex-1">
+                                {/* 検索バーと追加ボタン */}
+                                <div className="flex gap-4 mb-6">
+                                    <div className="flex-1 relative">
+                                        <Icon 
+                                            name="Search" 
+                                            size={20} 
+                                            className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} 
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="タイトルや内容で検索..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className={`w-full pl-10 pr-4 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500 ${
+                                                darkMode 
+                                                    ? 'bg-gray-800 border-gray-700 text-gray-100' 
+                                                    : 'bg-white border-gray-300 text-gray-900'
+                                            }`}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setEditingItem(null);
+                                            setShowForm(true);
+                                        }}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                                    >
+                                        <Icon name="Plus" size={20} />
+                                        <span>新規作成</span>
+                                    </button>
+                                </div>
+                                
+                                {/* アイテム一覧 */}
+                                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                    {filteredItems.length === 0 ? (
+                                        <div className={`col-span-full text-center py-12 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                            <Icon name="Inbox" size={48} className="mx-auto mb-4 opacity-50" />
+                                            <p className="text-lg">
+                                                {searchQuery ? '検索結果がありません' : 'アイテムがありません'}
+                                            </p>
+                                            <p className="mt-2">
+                                                {searchQuery ? '別のキーワードで検索してください' : '「新規作成」ボタンから追加してください'}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        filteredItems.map(item => {
+                                            const category = categories.find(c => c.id === item.categoryId) || categories[0];
+                                            return (
+                                                <ItemCard
+                                                    key={item.id}
+                                                    item={item}
+                                                    category={category}
+                                                    onEdit={(item) => {
+                                                        setEditingItem(item);
+                                                        setShowForm(true);
+                                                    }}
+                                                    onDelete={handleDeleteItem}
+                                                    onCopy={() => setCopyCount(copyCount + 1)}
+                                                    darkMode={darkMode}
+                                                />
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </main>
+                        </div>
+                    </div>
+                    
+                    {/* フォームモーダル */}
+                    {showForm && (
+                        <ItemForm
+                            item={editingItem}
+                            categories={categories}
+                            onSave={handleSaveItem}
+                            onCancel={() => {
+                                setEditingItem(null);
+                                setShowForm(false);
+                            }}
+                            darkMode={darkMode}
+                        />
+                    )}
+                    
+                    {/* カテゴリー編集モーダル */}
+                    {showCategoryForm && (
+                        <CategoryForm
+                            category={editingCategory}
+                            onSave={handleSaveCategory}
+                            onCancel={() => {
+                                setEditingCategory(null);
+                                setShowCategoryForm(false);
+                            }}
+                            darkMode={darkMode}
+                        />
+                    )}
+                </div>
+            );
+        };
+        
+        // アプリケーションをマウント
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

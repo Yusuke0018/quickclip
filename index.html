@@ -63,11 +63,11 @@
         
         // デフォルトカテゴリー
         const defaultCategories = [
-            { id: 'cat1', name: '診断書・証明書', color: 'blue', icon: 'FileText' },
-            { id: 'cat2', name: '処方・薬剤', color: 'green', icon: 'Pill' },
-            { id: 'cat3', name: 'パスワード', color: 'red', icon: 'Lock' },
-            { id: 'cat4', name: 'プロンプト', color: 'purple', icon: 'MessageSquare' },
-            { id: 'cat5', name: 'その他', color: 'gray', icon: 'Archive' }
+            { id: 'cat1', name: '診断書・証明書', color: 'blue', icon: 'clipboard' },
+            { id: 'cat2', name: '処方・薬剤', color: 'green', icon: 'pill' },
+            { id: 'cat3', name: 'パスワード', color: 'red', icon: 'lock' },
+            { id: 'cat4', name: 'プロンプト', color: 'purple', icon: 'star' },
+            { id: 'cat5', name: 'その他', color: 'gray', icon: 'folder' }
         ];
         
         // デフォルトアイテム
@@ -128,7 +128,7 @@
                         }`}
                     >
                         <div className="flex items-center space-x-3">
-                            <Icon name="Home" size={20} />
+                            <Icon name="home" size={20} />
                             <span className="font-medium">すべて</span>
                         </div>
                     </button>
@@ -161,7 +161,7 @@
                                 }`}
                                 title="カテゴリーを編集"
                             >
-                                <Icon name="Edit2" size={14} />
+                                <Icon name="edit-2" size={14} />
                             </button>
                         </div>
                     ))}
@@ -174,12 +174,24 @@
             const [name, setName] = useState(category?.name || '');
             const availableColors = ['blue', 'green', 'red', 'purple', 'yellow', 'pink', 'indigo', 'gray'];
             const availableIcons = [
-                'FileText', 'Pill', 'Lock', 'MessageSquare', 'Archive', 
-                'Heart', 'Star', 'Flag', 'Bookmark', 'Tag',
-                'Folder', 'File', 'Calendar', 'Clock', 'Mail'
+                'star',          // 重要・お気に入り
+                'pill',          // 薬・処方
+                'lock',          // セキュリティ・パスワード
+                'settings',      // 設定・ツール
+                'folder',        // フォルダ・その他
+                'heart',         // 医療・ケア
+                'calendar',      // スケジュール・予定
+                'users',         // スタッフ・患者
+                'home',          // ホーム・施設
+                'clipboard'      // クリップボード・書類
             ];
             const [selectedColor, setSelectedColor] = useState(category?.color || 'blue');
-            const [selectedIcon, setSelectedIcon] = useState(category?.icon || 'Folder');
+            const [selectedIcon, setSelectedIcon] = useState(category?.icon || 'folder');
+            
+            useEffect(() => {
+                // フォーム表示時にアイコンを初期化
+                setTimeout(() => lucide.createIcons(), 100);
+            }, [selectedIcon]);
             
             const handleSubmit = (e) => {
                 e.preventDefault();
@@ -244,16 +256,19 @@
                                     <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                         アイコン
                                     </label>
-                                    <div className="grid grid-cols-5 gap-2 max-h-32 overflow-y-auto custom-scrollbar">
+                                    <div className="grid grid-cols-5 gap-2">
                                         {availableIcons.map(icon => (
                                             <button
                                                 key={icon}
                                                 type="button"
-                                                onClick={() => setSelectedIcon(icon)}
-                                                className={`p-2 rounded-lg border ${
+                                                onClick={() => {
+                                                    setSelectedIcon(icon);
+                                                    setTimeout(() => lucide.createIcons(), 10);
+                                                }}
+                                                className={`p-3 rounded-lg border transition-all ${
                                                     selectedIcon === icon 
                                                         ? darkMode 
-                                                            ? 'border-blue-500 bg-gray-700' 
+                                                            ? 'border-blue-500 bg-blue-900 bg-opacity-50' 
                                                             : 'border-blue-500 bg-blue-50'
                                                         : darkMode 
                                                             ? 'border-gray-600 hover:bg-gray-700' 
@@ -261,7 +276,7 @@
                                                 }`}
                                                 title={icon}
                                             >
-                                                <Icon name={icon} size={20} />
+                                                <Icon name={icon} size={24} />
                                             </button>
                                         ))}
                                     </div>
@@ -325,21 +340,21 @@
                                 }`}
                                 title="コピー"
                             >
-                                <Icon name={copied ? "Check" : "Copy"} size={16} />
+                                <Icon name={copied ? "check" : "copy"} size={16} />
                             </button>
                             <button
                                 onClick={() => onEdit(item)}
                                 className={`p-2 rounded-lg transition-all ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}
                                 title="編集"
                             >
-                                <Icon name="Edit2" size={16} />
+                                <Icon name="edit-2" size={16} />
                             </button>
                             <button
                                 onClick={() => onDelete(item.id)}
                                 className={`p-2 rounded-lg transition-all ${darkMode ? 'hover:bg-red-900 text-red-400' : 'hover:bg-red-100 text-red-600'}`}
                                 title="削除"
                             >
-                                <Icon name="Trash2" size={16} />
+                                <Icon name="trash-2" size={16} />
                             </button>
                         </div>
                     </div>
@@ -615,7 +630,7 @@
                         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                             <div className="flex items-center justify-between h-16">
                                 <div className="flex items-center">
-                                    <Icon name="Clipboard" size={24} className="text-blue-600 mr-2" />
+                                    <Icon name="clipboard" size={24} className="text-blue-600 mr-2" />
                                     <h1 className="text-xl font-bold">QuickClip</h1>
                                 </div>
                                 <div className="flex items-center space-x-4">
@@ -624,7 +639,7 @@
                                         className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
                                         title="テーマ切り替え"
                                     >
-                                        <Icon name={darkMode ? "Sun" : "Moon"} size={20} />
+                                        <Icon name={darkMode ? "sun" : "moon"} size={20} />
                                     </button>
                                 </div>
                             </div>
@@ -695,7 +710,7 @@
                                 <div className="flex gap-4 mb-6">
                                     <div className="flex-1 relative">
                                         <Icon 
-                                            name="Search" 
+                                            name="search" 
                                             size={20} 
                                             className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} 
                                         />
@@ -718,7 +733,7 @@
                                         }}
                                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
                                     >
-                                        <Icon name="Plus" size={20} />
+                                        <Icon name="plus" size={20} />
                                         <span>新規作成</span>
                                     </button>
                                 </div>
@@ -727,7 +742,7 @@
                                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                                     {filteredItems.length === 0 ? (
                                         <div className={`col-span-full text-center py-12 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                            <Icon name="Inbox" size={48} className="mx-auto mb-4 opacity-50" />
+                                            <Icon name="inbox" size={48} className="mx-auto mb-4 opacity-50" />
                                             <p className="text-lg">
                                                 {searchQuery ? '検索結果がありません' : 'アイテムがありません'}
                                             </p>

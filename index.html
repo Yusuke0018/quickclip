@@ -625,11 +625,29 @@
             
             // エクスポート機能
             const handleExport = () => {
+                // カテゴリーデータを変換
+                const exportCategories = categories.map((cat, index) => ({
+                    id: cat.id,
+                    name: cat.name,
+                    icon: getIconEmoji(cat.icon),
+                    color: getColorHex(cat.color),
+                    order: index
+                }));
+                
+                // アイテムデータをsnippets形式に変換
+                const exportSnippets = items.map(item => ({
+                    id: item.id,
+                    title: item.title,
+                    content: item.content,
+                    categoryId: item.categoryId,
+                    isPinned: item.isPinned || false
+                }));
+                
                 const exportData = {
                     version: '1.0',
                     exportedAt: new Date().toISOString(),
-                    categories: categories,
-                    items: items
+                    categories: exportCategories,
+                    snippets: exportSnippets
                 };
                 
                 const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -639,6 +657,38 @@
                 a.download = `quickclip-export-${new Date().toISOString().split('T')[0]}.json`;
                 a.click();
                 URL.revokeObjectURL(url);
+            };
+            
+            // アイコン名を絵文字に変換
+            const getIconEmoji = (iconName) => {
+                const iconMap = {
+                    'star': '⭐',
+                    'pill': '💊',
+                    'lock': '🔐',
+                    'settings': '⚙️',
+                    'folder': '📁',
+                    'heart': '❤️',
+                    'calendar': '📅',
+                    'users': '👥',
+                    'home': '🏠',
+                    'clipboard': '📋'
+                };
+                return iconMap[iconName] || '📁';
+            };
+            
+            // 色名を16進数に変換
+            const getColorHex = (colorName) => {
+                const colorMap = {
+                    'blue': '#3b82f6',
+                    'green': '#10b981',
+                    'red': '#ef4444',
+                    'purple': '#a855f7',
+                    'yellow': '#eab308',
+                    'pink': '#ec4899',
+                    'indigo': '#6366f1',
+                    'gray': '#6b7280'
+                };
+                return colorMap[colorName] || '#6b7280';
             };
             
             return (

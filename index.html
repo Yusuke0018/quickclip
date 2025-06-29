@@ -623,6 +623,24 @@
                 };
             }, [items, copyCount]);
             
+            // エクスポート機能
+            const handleExport = () => {
+                const exportData = {
+                    version: '1.0',
+                    exportedAt: new Date().toISOString(),
+                    categories: categories,
+                    items: items
+                };
+                
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `quickclip-export-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+            
             return (
                 <div className={`min-h-screen ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
                     {/* ヘッダー */}
@@ -634,6 +652,13 @@
                                     <h1 className="text-xl font-bold">QuickClip</h1>
                                 </div>
                                 <div className="flex items-center space-x-4">
+                                    <button
+                                        onClick={() => handleExport()}
+                                        className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                                        title="データをエクスポート"
+                                    >
+                                        <Icon name="download" size={20} />
+                                    </button>
                                     <button
                                         onClick={() => setDarkMode(!darkMode)}
                                         className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
